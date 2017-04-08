@@ -1,0 +1,13 @@
+{
+    "name": "dbmover/tables",
+    "description": "Dbmover plugin to migrate table definitions",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Marijn Ophorst",
+            "email": "marijn@monomelodies.nl"
+        }
+    ],
+    "require": {}
+}
