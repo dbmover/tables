@@ -12,31 +12,18 @@ use PDO;
 
 class Plugin extends Core\Plugin
 {
-    private $columns;
+    protected $columns;
 
     public function __invoke(string $sql) : string
     {
-        $type = 'column_type';
-        switch ($this->loader->getVendor()) {
-            case 'pgsql': $type = 'data_type column_type'; break;
-        }
-        $this->columns = $this->loader->getPdo()->prepare(
-            "SELECT
-                column_name,
-                column_default,
-                is_nullable,
-                $type
-            FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE ((TABLE_CATALOG = ? AND TABLE_SCHEMA = 'public') OR TABLE_SCHEMA = ?)
-                AND TABLE_NAME = ?
-            ORDER BY ORDINAL_POSITION ASC");
         $tables = [];
         $exists = $this->loader->getPdo()->prepare(
             "SELECT * FROM INFORMATION_SCHEMA.TABLES
                 WHERE ((TABLE_CATALOG = ? AND TABLE_SCHEMA = 'public') OR TABLE_SCHEMA = ?)
                 AND TABLE_TYPE = 'BASE TABLE'
                 AND TABLE_NAME = ?");
-        if (preg_match_all("@CREATE.*?TABLE\s*([^\s]+)\s*\((.*)^\).*?;$@ms", $sql, $matches, PREG_SET_ORDER)) {
+        if (preg_match_all("@CREATE.*?TABLE\s*([^\s]+)\s*\((.*?)^\).*?;$@ms", $sql, $matches, PREG_SET_ORDER)) {
+            var_dump($matches);
             foreach ($matches as $table) {
                 $tables[] = $table[1];
                 // If no such table exists, create verbatim.
@@ -114,90 +101,10 @@ class Plugin extends Core\Plugin
         foreach ($requestedColumns as $name => $col) {
             if (!isset($currentColumns[$name])) {
                 $this->loader->addOperation("ALTER TABLE $table ADD COLUMN {$col['_definition']};");
-                continue;
-            }
-            if ($this->loader->getVendor() == 'mysql') {
-                $this->loader->addOperation("ALTER TABLE $table CHANGE COLUMN $name {$col['_definition']};");
             } else {
-                if (strlen($col['column_default'])) {
-                    $this->loader->addOperation("ALTER TABLE $table ALTER COLUMN $name SET DEFAULT {$col['_default']};");
-                } else {
-                    $this->loader->addOperation("ALTER TABLE $table ALTER COLUMN $name DROP DEFAULT;");
-                }
-                if ($col['is_nullable']) {
-                    $this->loader->addOperation("ALTER TABLE $table ALTER COLUMN $name DROP NOT NULL");
-                } else {
-                    $this->loader->addOperation("ALTER TABLE $table ALTER COLUMN $name SET NOT NULL");
-                }
+                $this->modifyColumn($table, $name, $col);
             }
         }
     }
-
-    /*
-    public function __destruct()
-    {
-
-
-        $class = new static($extr[1], $parent);
-        $columnClass = $class->getObjectName('Column');
-        $indexClass = $class->getObjectName('Index');
-        $lines = preg_split('@,$@m', rtrim($extr[2]));
-        $class->current = (object)['columns' => [], 'indexes' => []];
-        foreach ($lines as $line) {
-            $line = trim($line);
-            preg_match('@^\w+@', $line, $name);
-            $class->current->columns[$name[0]] = $columnClass::fromSql($line, $class);
-            if (stripos($line, 'AUTO_INCREMENT')) {
-                $class->current->indexes[$name[0]] = $indexClass::fromSql($line, $class);
-            }
-        }
-        return $class;
-    }
-    public function setCurrentState(PDO $pdo, string $database)
-    {
-        if (!isset(self::$columns)) {
-            self::$columns = $pdo->prepare(
-                "SELECT
-                    COLUMN_NAME colname
-                FROM INFORMATION_SCHEMA.COLUMNS
-                    WHERE (TABLE_CATALOG = ? OR TABLE_SCHEMA = ?) AND TABLE_NAME = ?
-                    ORDER BY ORDINAL_POSITION ASC"
-            );
-        }
-        self::$columns->execute([$database, $database, $this->name]);
-        $this->current = (object)['columns' => [], 'indexes' => []];
-        $this->setCurrentIndexes($pdo, $database);
-        $cols = [];
-        $class = $this->getObjectName('Column');
-        foreach (self::$columns->fetchAll(PDO::FETCH_ASSOC) as $column) {
-            $this->current->columns[$column['colname']] = new $class($column['colname'], $this);
-            $this->current->columns[$column['colname']]->setCurrentState($pdo, $database);
-        }
-    }
-
-    //protected abstract function setCurrentIndexes(PDO $pdo, string $database);
-
-    public function toSql() : array
-    {
-        $operations = [];
-        foreach (['columns', 'indexes'] as $type) {
-            foreach ($this->current->$type as $obj) {
-                if (isset($this->requested->current->$type[$obj->name])) {
-                    $obj->setComparisonObject($this->requested->current->$type[$obj->name]);
-                }
-                $operations = array_merge($operations, $obj->toSql());
-            }
-            foreach ($this->requested->current->$type as $obj) {
-                if (!isset($this->current->$type[$obj->name])) {
-                    $class = get_class($obj);
-                    $newobj = new $class($obj->name, $obj->parent);
-                    $newobj->setComparisonObject($obj);
-                    $operations = array_merge($operations, $newobj->toSql());
-                }
-            }
-        }
-        return $operations;
-    }
-    */
 }
 
