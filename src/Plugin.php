@@ -10,8 +10,9 @@ namespace Dbmover\Tables;
 use Dbmover\Core;
 use PDO;
 
-class Plugin extends Core\Plugin
+abstract class Plugin extends Core\Plugin
 {
+    public $description = 'All tables migrated.';
     protected $columns;
 
     public function __invoke(string $sql) : string
@@ -22,14 +23,13 @@ class Plugin extends Core\Plugin
                 WHERE ((TABLE_CATALOG = ? AND TABLE_SCHEMA = 'public') OR TABLE_SCHEMA = ?)
                 AND TABLE_TYPE = 'BASE TABLE'
                 AND TABLE_NAME = ?");
-        if (preg_match_all("@CREATE.*?TABLE\s*([^\s]+)\s*\((.*?)^\).*?;$@ms", $sql, $matches, PREG_SET_ORDER)) {
-            var_dump($matches);
+        if (preg_match_all("@^CREATE TABLE\s*([^\s]+)\s*\((.*?)^\).*?;$@ms", $sql, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $table) {
                 $tables[] = $table[1];
                 // If no such table exists, create verbatim.
                 $exists->execute([$this->loader->getDatabase(), $this->loader->getDatabase(), $table[1]]);
                 if (false === $exists->fetch(PDO::FETCH_ASSOC)) {
-                    $this->loader->addOperation($table[0]);
+                    $this->addOperation($table[0]);
                 } else {
                     // ...else check if the table needs modifications.
                     $this->checkTableStatus($table[1], $table[2]);
@@ -46,7 +46,15 @@ class Plugin extends Core\Plugin
         $exists->execute([$this->loader->getDatabase(), $this->loader->getDatabase()]);
         while (false !== ($table = $exists->fetchColumn())) {
             if (!in_array($table, $tables)) {
-                $this->loader->addOperation("DROP TABLE $table;");
+                $this->addOperation("DROP TABLE $table;");
+            }
+        }
+
+        // Extract explicit ALTER TABLE statements.
+        if (preg_match_all("@^ALTER TABLE.*?;$@ms", $sql, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $this->addOperation($match[0]);
+                $sql = str_replace($match[0], '', $sql);
             }
         }
         return $sql;
@@ -61,12 +69,17 @@ class Plugin extends Core\Plugin
      */
     protected function checkTableStatus(string $table, string $sql)
     {
+        $tbl = new class($this->loader) extends Core\Plugin {};
+        $tbl->description = "Migrating schema for $table...";
         $sql = preg_replace("@^\s+@ms", '', $sql);
         $requestedColumns = [];
         foreach (preg_split("@,\n@m", $sql) as $reqCol) {
+            if (preg_match("@^PRIMARY KEY\(.*?\)@", $reqCol, $pk)) {
+                $tbl->addOperation("ALTER TABLE $table ADD PRIMARY KEY({$pk[1]});");
+                continue;
+            }
             preg_match("@^[^\s]+@", $reqCol, $name);
             $name = $name[0];
-            $reqCol = str_replace('PRIMARY KEY', '', $reqCol);
             $requestedColumns[$name] = [
                 'column_name' => $name,
                 'column_default' => null,
@@ -74,6 +87,7 @@ class Plugin extends Core\Plugin
                 'column_type' => '',
                 '_definition' => trim($reqCol),
             ];
+            $reqCol = str_replace('PRIMARY KEY', '', $reqCol);
             $reqCol = preg_replace("@^$name\s+@", '', $reqCol);
             if (strpos($reqCol, 'NOT NULL')) {
                 $requestedColumns[$name]['is_nullable'] = false;
@@ -91,7 +105,7 @@ class Plugin extends Core\Plugin
         $currentColumns = [];
         foreach ($this->columns->fetchAll(PDO::FETCH_ASSOC) as $column) {
             if (!isset($requestedColumns[$column['column_name']])) {
-                $this->loader->addOperation("ALTER TABLE $table DROP COLUMN {$column['column_name']};");
+                $tbl->addOperation("ALTER TABLE $table DROP COLUMN {$column['column_name']};");
             } else {
                 $column['is_nullable'] = $column['is_nullable'] == 'YES';
                 $column['column_type'] = strtoupper($column['column_type']);
@@ -100,11 +114,17 @@ class Plugin extends Core\Plugin
         }
         foreach ($requestedColumns as $name => $col) {
             if (!isset($currentColumns[$name])) {
-                $this->loader->addOperation("ALTER TABLE $table ADD COLUMN {$col['_definition']};");
+                $tbl->addOperation("ALTER TABLE $table ADD COLUMN {$col['_definition']};");
             } else {
-                $this->modifyColumn($table, $name, $col);
+                $tbl->addOperation($this->modifyColumn($table, $name, $col));
+            }
+            if (strpos($col['_definition'], 'PRIMARY KEY') && $this->loader->getVendor() != 'mysql') {
+                $tbl->addOperation("ALTER TABLE $table ADD PRIMARY KEY($name);");
             }
         }
+        $tbl->persist();
     }
+
+    protected abstract function modifyColumn(string $table, string $column, array $definition) : string;
 }
 
