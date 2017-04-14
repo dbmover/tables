@@ -46,7 +46,7 @@ abstract class Plugin extends Core\Plugin
         $exists->execute([$this->loader->getDatabase(), $this->loader->getDatabase()]);
         while (false !== ($table = $exists->fetchColumn())) {
             if (!in_array($table, $tables)) {
-                $this->addOperation("DROP TABLE $table;");
+                $this->defer("DROP TABLE $table;");
             }
         }
 
@@ -60,6 +60,12 @@ abstract class Plugin extends Core\Plugin
         return $sql;
     }
 
+    public function __destruct()
+    {
+        $this->description = 'Dropping deprecated tables...';
+        parent::__destruct();
+    }
+
     /**
      * Compare the table status against the requested SQL, and generate ALTER
      * statements accordingly.
@@ -70,7 +76,7 @@ abstract class Plugin extends Core\Plugin
     protected function checkTableStatus(string $table, string $sql)
     {
         $tbl = new class($this->loader) extends Core\Plugin {};
-        $tbl->description = "Migrating schema for $table...";
+        $tbl->description = "Updating schema for $table...";
         $sql = preg_replace("@^\s+@ms", '', $sql);
         $requestedColumns = [];
         foreach (preg_split("@,\n@m", $sql) as $reqCol) {
