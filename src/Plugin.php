@@ -80,8 +80,7 @@ abstract class Plugin extends Core\Plugin
         $sql = preg_replace("@^\s+@ms", '', $sql);
         $requestedColumns = [];
         foreach (preg_split("@,\n@m", $sql) as $reqCol) {
-            if (preg_match("@^PRIMARY KEY\(.*?\)@", $reqCol, $pk)) {
-                $tbl->addOperation("ALTER TABLE $table ADD PRIMARY KEY({$pk[1]});");
+            if (preg_match("@^PRIMARY KEY\s*\((.*?)\)@", $reqCol, $pk)) {
                 continue;
             }
             preg_match("@^[^\s]+@", $reqCol, $name);
@@ -107,7 +106,7 @@ abstract class Plugin extends Core\Plugin
             }
             $requestedColumns[$name]['column_type'] = trim($reqCol);
         }
-        $this->columns->execute([$this->loader->getDatabase(), $this->loader->getDatabase(), $table]);
+        $this->columns->execute([$this->loader->getDatabase(), $table]);
         $currentColumns = [];
         foreach ($this->columns->fetchAll(PDO::FETCH_ASSOC) as $column) {
             if (!isset($requestedColumns[$column['column_name']])) {
@@ -122,15 +121,14 @@ abstract class Plugin extends Core\Plugin
             if (!isset($currentColumns[$name])) {
                 $tbl->addOperation("ALTER TABLE $table ADD COLUMN {$col['_definition']};");
             } else {
-                $tbl->addOperation($this->modifyColumn($table, $name, $col));
-            }
-            if (strpos($col['_definition'], 'PRIMARY KEY') && $this->loader->getVendor() != 'mysql') {
-                $tbl->addOperation("ALTER TABLE $table ADD PRIMARY KEY($name);");
+                foreach ($this->modifyColumn($table, $name, $col, $currentColumns[$name]) as $sql) {
+                    $tbl->addOperation($sql);
+                }
             }
         }
         $tbl->persist();
     }
 
-    protected abstract function modifyColumn(string $table, string $column, array $definition) : string;
+    protected abstract function modifyColumn(string $table, string $column, array $definition, array $current) : array;
 }
 
