@@ -4,58 +4,24 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "f777bb060989c371989958299fedaa7a",
+    "hash": "009473e04f85a50c1f5d0e667e9ed444",
     "content-hash": "91d09080c0200837a26f1f78260f0216",
     "packages": [
         {
-            "name": "dariuszp/cli-progress-bar",
-            "version": "1.0.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/dariuszp/cli-progress-bar.git",
-                "reference": "54020a8fc60bf19579bfe0317f17a2848d48991d"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/dariuszp/cli-progress-bar/zipball/54020a8fc60bf19579bfe0317f17a2848d48991d",
-                "reference": "54020a8fc60bf19579bfe0317f17a2848d48991d",
-                "shasum": ""
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Dariuszp\\": "src/Dariuszp"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Dariusz Półtorak",
-                    "email": "poltorak.dariusz@gmail.com"
-                }
-            ],
-            "description": "Cli progress bar",
-            "time": "2015-11-02 14:38:59"
-        },
-        {
             "name": "dbmover/core",
-            "version": "0.6.0",
+            "version": "0.6.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/dbmover/core.git",
-                "reference": "f7e9972b9779456fb113ad30fb12a55d1688fcbb"
+                "reference": "25243cd98db75d0b18b3507a0764a1038e62ae6d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/dbmover/core/zipball/f7e9972b9779456fb113ad30fb12a55d1688fcbb",
-                "reference": "f7e9972b9779456fb113ad30fb12a55d1688fcbb",
+                "url": "https://api.github.com/repos/dbmover/core/zipball/25243cd98db75d0b18b3507a0764a1038e62ae6d",
+                "reference": "25243cd98db75d0b18b3507a0764a1038e62ae6d",
                 "shasum": ""
             },
             "require": {
-                "dariuszp/cli-progress-bar": "^1.0",
                 "monomelodies/kingconf": "^1.1"
             },
             "require-dev": {
@@ -81,7 +47,7 @@
                 }
             ],
             "description": "PHP-based database versioning tool, core components",
-            "time": "2017-04-08 14:58:17"
+            "time": "2017-04-16 12:36:02"
         },
         {
             "name": "monomelodies/kingconf",
