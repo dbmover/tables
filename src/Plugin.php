@@ -12,9 +12,15 @@ use PDO;
 
 abstract class Plugin extends Core\Plugin
 {
+    /** @var string */
     public $description = 'All tables migrated.';
+    /** @var PdoStatement */
     protected $columns;
 
+    /**
+     * @param string $sql
+     * @return string
+     */
     public function __invoke(string $sql) : string
     {
         $tables = [];
@@ -72,8 +78,9 @@ abstract class Plugin extends Core\Plugin
      *
      * @param string $table Name of the table
      * @param string $sql SQL of the requested table definition
+     * @return void
      */
-    protected function checkTableStatus(string $table, string $sql)
+    protected function checkTableStatus(string $table, string $sql) : void
     {
         $tbl = new class($this->loader) extends Core\Plugin {};
         $tbl->description = "Updating schema for $table...";
@@ -129,6 +136,13 @@ abstract class Plugin extends Core\Plugin
         $tbl->persist();
     }
 
+    /**
+     * @param string $table
+     * @param string $column
+     * @param array $definition
+     * @param array $current
+     * @return array
+     */
     protected abstract function modifyColumn(string $table, string $column, array $definition, array $current) : array;
 }
 
